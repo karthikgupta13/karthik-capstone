@@ -1,4 +1,4 @@
-# Support Desk: IT Support Ticket Management System
+# FlowCare: Automation Support Desk
 
 A small web app for an IT / RPA support engineer to log failed automation processes,
 track them from **Open → In Progress → Resolved**, assign them to the right team and
