@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}New ticket{% endblock %}
+
+{% block content %}
+<a class="back" href="{{ url_for('tickets') }}">
+  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.5 3 4.5 7l4 4"/></svg>
+  All tickets
+</a>
+
+<div class="page-head">
+  <div>
+    <h1>New ticket</h1>
+    <p>Log a failed automation or technical issue. New tickets start as Open.</p>
+  </div>
+</div>
+
+{% if errors %}
+  <div class="notice error" role="alert">
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="8" r="6.5"/><path d="M8 4.8v3.6M8 11h.01"/></svg>
+    <ul>{% for error in errors %}<li>{{ error }}</li>{% endfor %}</ul>
+  </div>
+{% endif %}
+
+<form class="card" method="post">
+  <div class="card-body form-grid">
+    <div class="field">
+      <label for="employee_name">Employee name</label>
+      <input class="input" id="employee_name" name="employee_name" required
+             value="{{ form.get('employee_name', '') }}" placeholder="Who reported it?">
+    </div>
+
+    <div class="field">
+      <label for="process_name">Process name <span class="optional">(optional)</span></label>
+      <input class="input" id="process_name" name="process_name"
+             value="{{ form.get('process_name', '') }}" placeholder="e.g. Invoice_Processing">
+    </div>
+
+    <div class="field span-2">
+      <label for="issue">Issue</label>
+      <textarea class="textarea" id="issue" name="issue" required minlength="5"
+                placeholder="What failed, where, and what error was shown?">{{ form.get('issue', '') }}</textarea>
+    </div>
+
+    <div class="field">
+      <label for="exception_type">Exception type</label>
+      <select class="select" id="exception_type" name="exception_type">
+        <option value="">Not an automation exception</option>
+        {% for exc in EXCEPTION_TYPES %}
+          <option {{ 'selected' if form.get('exception_type') == exc }}>{{ exc }}</option>
+        {% endfor %}
+      </select>
+      <span class="hint">System = the bot or an app broke. Business = the data or a rule was wrong.</span>
+    </div>
+
+    <div class="field">
+      <label for="assigned_team">Assign to team</label>
+      <select class="select" id="assigned_team" name="assigned_team">
+        {% for team in TEAMS %}
+          <option {{ 'selected' if form.get('assigned_team', 'Automation Support') == team }}>{{ team }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <fieldset class="field span-2">
+      <legend class="label">Priority</legend>
+      <div class="choice">
+        {% for priority in PRIORITIES %}
+          <label>
+            <input type="radio" name="priority" value="{{ priority }}" {{ 'checked' if form.get('priority', 'Medium') == priority }}>
+            <span class="option" data-priority="{{ priority }}">
+              <strong><span class="bars" aria-hidden="true"><i></i><i></i><i></i></span>{{ priority }}</strong>
+              <small>Resolve within {{ SLA_HOURS[priority] }} hours</small>
+            </span>
+          </label>
+        {% endfor %}
+      </div>
+    </fieldset>
+  </div>
+
+  <div class="form-actions">
+    <a class="btn btn-ghost" href="{{ url_for('tickets') }}">Cancel</a>
+    <button class="btn btn-primary" type="submit">Create ticket</button>
+  </div>
+</form>
+{% endblock %}

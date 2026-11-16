@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+{% block title %}Report{% endblock %}
+
+{% block content %}
+{% set resolved   = by_status.get('Resolved', 0) %}
+{% set unresolved = total - resolved %}
+
+<div class="page-head">
+  <div>
+    <h1>Ticket report</h1>
+    <p>Generated {{ generated | nice_date }} · {{ total }} tickets in total</p>
+  </div>
+  <a class="btn btn-secondary" href="{{ url_for('report_csv') }}">
+    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2.5v8M4.5 7 8 10.5 11.5 7M3 13.5h10"/></svg>
+    Download CSV
+  </a>
+</div>
+
+<section class="stats" aria-label="Report summary">
+  <div class="card stat">
+    <div class="stat-label">Total tickets</div>
+    <div class="stat-value">{{ total }}</div>
+  </div>
+  <div class="card stat">
+    <div class="stat-label">Unresolved</div>
+    <div class="stat-value">{{ unresolved }}</div>
+    <div class="stat-note">Open + In Progress</div>
+  </div>
+  <div class="card stat">
+    <div class="stat-label">Resolved</div>
+    <div class="stat-value">{{ resolved }}</div>
+    <div class="stat-note">{{ (resolved * 100 / total) | round | int if total else 0 }}% resolution rate</div>
+  </div>
+  <a class="card stat" href="#sla">
+    <div class="stat-label"><span class="dot dot-breach"></span>SLA breached</div>
+    <div class="stat-value">{{ breached | length }}</div>
+    <div class="stat-note">{{ 'Needs escalation' if breached else 'All within target' }}</div>
+  </a>
+</section>
+
+{# Status split: one bar, split into parts, plus the SQL that produced it. #}
+<section class="card">
+  <div class="card-head">
+    <h2>Tickets by status</h2>
+    <p>Share of all tickets in each stage.</p>
+  </div>
+  <div class="card-body">
+    {% if total %}
+      <div class="segbar" role="img"
+           aria-label="{% for s in STATUSES %}{{ s }} {{ by_status.get(s, 0) }}{{ ', ' if not loop.last }}{% endfor %}">
+        {% for status in STATUSES if by_status.get(status, 0) %}
+          {% set share = (by_status[status] * 100 / total) | round | int %}
+          <span data-status="{{ status }}" style="flex: {{ by_status[status] }}"
+                title="{{ status }}: {{ by_status[status] }} tickets ({{ share }}%)">{{ share ~ '%' if share >= 10 }}</span>
+        {% endfor %}
+      </div>
+      <div class="legend">
+        {% for status in STATUSES %}
+          <span data-status="{{ status }}"><i class="dot"></i>{{ status }}</span>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p class="empty">No tickets yet.</p>
+    {% endif %}
+
+    <div class="grid-2 section">
+      <table>
+        <thead><tr><th>Status</th><th class="num">Tickets</th><th class="num">Share</th></tr></thead>
+        <tbody>
+          {% for status in STATUSES %}
+            {% set count = by_status.get(status, 0) %}
+            <tr>
+              <td><span class="pill" data-status="{{ status }}">{{ status }}</span></td>
+              <td class="num">{{ count }}</td>
+              <td class="num muted">{{ (count * 100 / total) | round | int if total else 0 }}%</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+
+      <div>
+        <div class="hint caption">Query behind this report</div>
+        <pre class="sql"><b>SELECT</b> status, <b>COUNT</b>(*) <b>AS</b> total
+<b>FROM</b>   tickets
+<b>GROUP BY</b> status;</pre>
+      </div>
+    </div>
+  </div>
+</section>
+
+{# Priority and team breakdowns. #}
+<div class="grid-2 section">
+  {% set max_priority = by_priority.values() | max if by_priority else 1 %}
+  <section class="card">
+    <div class="card-head"><h2>By priority</h2></div>
+    <div class="card-body">
+      {% for priority in PRIORITIES | reverse %}
+        {% set count = by_priority.get(priority, 0) %}
+        <div class="meter-row">
+          <span class="prio" data-priority="{{ priority }}"><span class="bars" aria-hidden="true"><i></i><i></i><i></i></span>{{ priority }}</span>
+          <div class="meter" title="{{ priority }}: {{ count }} tickets"><i style="width: {{ count * 100 / max_priority }}%"></i></div>
+          <span class="num">{{ count }}</span>
+        </div>
+      {% endfor %}
+    </div>
+  </section>
+
+  {% set max_team = teams[0][1] or 1 %}
+  <section class="card">
+    <div class="card-head"><h2>By team</h2></div>
+    <div class="card-body">
+      {% for team, count in teams %}
+        <div class="meter-row">
+          <span>{{ team }}</span>
+          <div class="meter" title="{{ team }}: {{ count }} tickets"><i style="width: {{ count * 100 / max_team }}%"></i></div>
+          <span class="num">{{ count }}</span>
+        </div>
+      {% endfor %}
+    </div>
+  </section>
+</div>
+
+{# Escalation list: unresolved tickets past their SLA. #}
+<section class="card table-card section" id="sla">
+  <div class="card-head">
+    <h2>SLA breaches</h2>
+    <p>Unresolved tickets past their target time. Escalate these first.</p>
+  </div>
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr><th>ID</th><th>Issue</th><th>Priority</th><th class="hide-sm">Team</th><th>Overdue</th></tr>
+      </thead>
+      <tbody>
+        {% for t in breached %}
+          <tr>
+            <td class="id"><a href="{{ url_for('ticket_detail', ticket_id=t.ticket_id) }}">#{{ t.ticket_id }}</a></td>
+            <td class="issue">
+              <a href="{{ url_for('ticket_detail', ticket_id=t.ticket_id) }}">{{ t.issue }}</a>
+              <div class="sub">{{ t.process_name or 'General IT' }} · {{ t.employee_name }}</div>
+            </td>
+            <td><span class="prio" data-priority="{{ t.priority }}"><span class="bars" aria-hidden="true"><i></i><i></i><i></i></span>{{ t.priority }}</span></td>
+            <td class="hide-sm nowrap">{{ t.assigned_team }}</td>
+            <td><span class="sla breached">{{ t.sla_text | replace('Overdue by ', '') }}</span></td>
+          </tr>
+        {% else %}
+          <tr><td colspan="5" class="empty">No tickets past their SLA. Nothing to escalate.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

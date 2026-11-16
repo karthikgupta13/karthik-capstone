@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}Tickets{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Tickets</h1>
+    <p>Failed automation processes and technical issues, newest first.</p>
+  </div>
+</div>
+
+{# Summary tiles. Each one opens the list filtered to that status. #}
+<section class="stats" aria-label="Ticket summary">
+  {% for status in STATUSES %}
+    <a class="card stat" href="{{ url_for('tickets', status=status) }}" data-status="{{ status }}">
+      <div class="stat-label"><span class="dot"></span>{{ status }}</div>
+      <div class="stat-value">{{ counts.get(status, 0) }}</div>
+    </a>
+  {% endfor %}
+  <a class="card stat" href="{{ url_for('report') }}#sla">
+    <div class="stat-label"><span class="dot dot-breach"></span>SLA breached</div>
+    <div class="stat-value">{{ breached }}</div>
+    <div class="stat-note">{{ 'Needs escalation' if breached else 'All within target' }}</div>
+  </a>
+</section>
+
+<div class="toolbar">
+  <nav class="tabs" aria-label="Filter by status">
+    <a href="{{ url_for('tickets') }}" class="{{ 'active' if not active }}">All <span class="count">{{ total }}</span></a>
+    {% for status in STATUSES %}
+      <a href="{{ url_for('tickets', status=status) }}" class="{{ 'active' if active == status }}">
+        {{ status }} <span class="count">{{ counts.get(status, 0) }}</span>
+      </a>
+    {% endfor %}
+  </nav>
+
+  <form class="search" action="{{ url_for('search') }}" method="get" role="search">
+    <div class="input-icon">
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="7" cy="7" r="5"/><path d="m11 11 3.5 3.5"/></svg>
+      <input class="input" name="ticket_id" inputmode="numeric" autocomplete="off"
+             placeholder="Ticket ID, e.g. 7" aria-label="Search by ticket ID">
+    </div>
+    <button class="btn btn-secondary" type="submit">Find</button>
+  </form>
+</div>
+
+<div class="card table-card">
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Issue</th>
+          <th>Priority</th>
+          <th>Status</th>
+          <th class="hide-sm">Team</th>
+          <th class="hide-sm">Created</th>
+          <th>SLA</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for t in tickets %}
+          <tr>
+            <td class="id"><a href="{{ url_for('ticket_detail', ticket_id=t.ticket_id) }}">#{{ t.ticket_id }}</a></td>
+            <td class="issue">
+              <a href="{{ url_for('ticket_detail', ticket_id=t.ticket_id) }}">{{ t.issue }}</a>
+              <div class="sub">{{ t.process_name or 'General IT' }} · {{ t.employee_name }}</div>
+            </td>
+            <td>
+              <span class="prio" data-priority="{{ t.priority }}"><span class="bars" aria-hidden="true"><i></i><i></i><i></i></span>{{ t.priority }}</span>
+            </td>
+            <td><span class="pill" data-status="{{ t.status }}">{{ t.status }}</span></td>
+            <td class="hide-sm nowrap">{{ t.assigned_team }}</td>
+            <td class="hide-sm nowrap muted">{{ t.created_date | nice_date }}</td>
+            <td><span class="sla {{ 'breached' if t.breached }}">{{ t.sla_text }}</span></td>
+          </tr>
+        {% else %}
+          <tr><td colspan="7" class="empty">No tickets with this status.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

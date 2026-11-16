@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% block title %}Ticket #{{ ticket.ticket_id }}{% endblock %}
+
+{% block content %}
+<a class="back" href="{{ url_for('tickets') }}">
+  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.5 3 4.5 7l4 4"/></svg>
+  All tickets
+</a>
+
+<div class="page-head">
+  <div>
+    <div class="ticket-meta">
+      <span class="id">#{{ ticket.ticket_id }}</span>
+      <span class="pill" data-status="{{ ticket.status }}">{{ ticket.status }}</span>
+      {% if ticket.breached %}<span class="pill flag">SLA breached</span>{% endif %}
+    </div>
+    <h1>{{ ticket.issue }}</h1>
+    <p>Raised by {{ ticket.employee_name }} on {{ ticket.created_date | nice_date }}</p>
+  </div>
+</div>
+
+{% if errors %}
+  <div class="notice error" role="alert">
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="8" r="6.5"/><path d="M8 4.8v3.6M8 11h.01"/></svg>
+    <ul>{% for error in errors %}<li>{{ error }}</li>{% endfor %}</ul>
+  </div>
+{% endif %}
+
+<div class="detail-layout">
+  {# Left: everything we know about the ticket. #}
+  <section class="card">
+    <div class="card-head"><h2>Details</h2></div>
+    <div class="card-body">
+      <dl class="details">
+        <dt>Process</dt>
+        <dd>{{ ticket.process_name or 'General IT' }}</dd>
+
+        <dt>Exception type</dt>
+        <dd>{{ ticket.exception_type or 'Not an automation exception' }}</dd>
+
+        <dt>Priority</dt>
+        <dd><span class="prio" data-priority="{{ ticket.priority }}"><span class="bars" aria-hidden="true"><i></i><i></i><i></i></span>{{ ticket.priority }}</span></dd>
+
+        <dt>Assigned team</dt>
+        <dd>{{ ticket.assigned_team }}</dd>
+
+        <dt>SLA target</dt>
+        <dd>{{ SLA_HOURS[ticket.priority] }} hours from creation</dd>
+
+        <dt>SLA due</dt>
+        <dd>
+          {{ ticket.sla_due | nice_date }}
+          <span class="sla {{ 'breached' if ticket.breached }}">· {{ ticket.sla_text }}</span>
+        </dd>
+
+        <dt>Resolution notes</dt>
+        <dd class="notes {{ 'muted' if not ticket.resolution_notes }}">{{ ticket.resolution_notes or 'No notes yet.' }}</dd>
+      </dl>
+    </div>
+  </section>
+
+  {# Right: the update form. #}
+  <form class="card" method="post">
+    <div class="card-head">
+      <h2>Update ticket</h2>
+      <p>Change the status as work progresses.</p>
+    </div>
+
+    <div class="card-body stack">
+      <fieldset class="field">
+        <legend class="label">Status</legend>
+        <div class="choice">
+          {% for status in STATUSES %}
+            <label>
+              <input type="radio" name="status" value="{{ status }}" {{ 'checked' if form.get('status', ticket.status) == status }}>
+              <span class="option" data-status="{{ status }}"><strong><span class="dot"></span>{{ status }}</strong></span>
+            </label>
+          {% endfor %}
+        </div>
+      </fieldset>
+
+      <div class="field">
+        <label for="priority">Priority</label>
+        <select class="select" id="priority" name="priority">
+          {% for priority in PRIORITIES %}
+            <option {{ 'selected' if form.get('priority', ticket.priority) == priority }}>{{ priority }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="assigned_team">Assigned team</label>
+        <select class="select" id="assigned_team" name="assigned_team">
+          {% for team in TEAMS %}
+            <option {{ 'selected' if form.get('assigned_team', ticket.assigned_team) == team }}>{{ team }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="resolution_notes">Resolution notes</label>
+        <textarea class="textarea" id="resolution_notes" name="resolution_notes"
+                  placeholder="What was the root cause and the fix?">{{ form.get('resolution_notes', ticket.resolution_notes or '') }}</textarea>
+        <span class="hint">Required when you mark the ticket Resolved.</span>
+      </div>
+    </div>
+
+    <div class="form-actions">
+      <button class="btn btn-primary" type="submit">Save changes</button>
+    </div>
+  </form>
+</div>
+{% endblock %}
